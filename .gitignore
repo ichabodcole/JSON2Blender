@@ -1,0 +1,5 @@
+*.sublime*
+*.DS_store
+*.blend
+*.json
+lib/json2.js

@@ -1,0 +1,1 @@
+A script to convert AE2JSON encoded After Effects project properties to Blender
