@@ -44,6 +44,7 @@ class Main():
   def __init__(self, json_data):
     self.json_data = json_data
     self.compSettings = json_data['compSettings']
+    self.objectList = []
 
   def run(self):
     for data in self.json_data:
@@ -63,32 +64,6 @@ class BaseObject(object):
     self.__add_to_scene()
     self.__set_properties()
 
-  def __scale_location(self, location):
-    scaleFactor = 0.01
-    location = [x * scaleFactor for x in location]
-    return location
-
-  def __adjust_ae_center(self, location):
-    location[0], location[1] = (location[0]-(self.compSettings['width']/2)), (location[1]-(self.compSettings['height']/2))
-    return location
-
-  def __flip_zy(self, location):
-    location[1], location[2] = location[2], -location[1]
-    return location
-
-  def __correct_location_values(self, location):
-    newLoc = self.__adjust_ae_center(location)
-    newLoc = self.__flip_zy(newLoc)
-    newLoc = self.__scale_location(newLoc)
-    return newLaaoc
-      
-  def __adjustXRotation(self, xRot):
-    xRot += 90
-    return xRot
-
-  def __correct_rotation_values(self, rotation):
-    return radians(rotation)
-
   def __set_property(self, propType, propList):
     numProperties = len(propList)
     if (numProperties < 2 and numProperties != 0):
@@ -106,41 +81,65 @@ class BaseObject(object):
     if(propType == 'location'):
       self.__set_location(propVal, frame)
 
-    if(propType == 'xRotation'):
-      index = 0
-      self.__set_rotation(index, propVal, frame)
-
-    if(propType == 'yRotation'):
-      index = 1
-      self.__set_rotation(index, propVal, frame)
-
-    if(propType == 'zRotation'):
-      index = 2
-      self.__set_rotation(index, propVal, frame)
+    if(propType == 'xRotation' or propType == 'yRotation' or propType == 'zRotation'):  
+      self.__set_rotation(propType, propVal, frame)
 
   def __get_location_data(self):
     location = self.objData['transform']['position']
     return location
 
   def __set_location(self, location, frame):
-    newLoc = self.__correct_location_values(location)
-    self.BO.location = newLoc
+    # Adjust the object position to compensate for After Effects Top Left corner coordinate  system
+    location[0], location[1] = (location[0]-(self.compSettings['width']/2)), (location[1]-(self.compSettings['height']/2))
+
+    #Flip the ZY coordinates
+    location[1], location[2] = location[2], -location[1]
+
+    #Scale down the dimensions to a resonable size
+    scaleFactor = 0.01
+    location = [x * scaleFactor for x in location]
+
+    # Set the objects position
+    self.BO.location = location
+
+    # Keyframe the position
     if(frame != -1):
       self.BO.keyframe_insert(data_path="location", frame=frame)
 
   def __get_rotation_data(self, rotationType):
+    # Some After Effects objects do not have a rotation, 
+    # so we must add a default if rotation does not exist.
     if(self.objData['transform'][rotationType]):
       rotation = self.objData['transform'][rotationType]
     else:
       rotation = [[0, 0]]
     return rotation
 
-  def __set_rotation(self, index, rotation, frame):
-    self.BO.rotation[index] = rotation
+  def __set_rotation(self, axis, rotation, frame):
+    # Correct for AE starting rotation
+    if(axis == 'xRotation'):
+      index = 0
+      rotation += 90
+
+    # Correct for AE's ZY coordinate flip
+    if(axis == 'yRotation'):
+      index = 2
+      # Another coordinate fix
+      rotation *= -1
+    if(axis == 'zRotation'):
+      index = 1
+
+    # Convert degrees to radians
+    rotation = radians(rotation)
+
+    # Set the object's rotation
+    self.BO.rotation_euler[index] = rotation
+
+    # Keyframe the rotation
     if(frame != -1):
-      self.BO.keyframe_insert(data_path="rotation", frame=frame, index=index)
+      self.BO.keyframe_insert(data_path="rotation_euler", frame=frame, index=index)
         
-  def __set_properties():
+  def __set_properties(self):
     self.__set_property('location', self.__get_location_data())
     self.__set_property('xRotation', self.__get_rotation_data('xRotation'))
     self.__set_property('yRotation', self.__get_rotation_data('yRotation'))
