@@ -39,20 +39,43 @@ json_data = json.loads(json_str)
 
 
 
-
 class Main():
   def __init__(self, json_data):
     self.json_data = json_data
-    self.compSettings = json_data['compSettings']
-    self.objectList = []
+    self.defaultComp = json_data['compositions'][0]
+    self.compSettings = self.defaultComp['compSettings']
+    self.relationships = []
+    #['ObjectName1':'ParentName1', 'ObjectName2:ParentName2']
 
   def run(self):
-    for data in self.json_data:
-      obj = self.json_data[data]
-      if(data == 'nulls'):
-        for null in obj:
-          nullObj = Null(self.compSettings, obj[null])
+    layers = self.defaultComp['layers']
+    for layer in layers:  
+      layerType = layer['layerType']
 
+      if(layerType == 'Null'):
+        obj = Empty(self.compSettings, layer)
+      elif(layerType == 'Solid'):
+        obj = Mesh(self.compSettings, layer)
+      elif(layerType == 'Camera'):
+        obj = Camera(self.compSettings, layer)
+      
+      self.check_for_parent(layer)
+    self.set_parents()
+
+  def check_for_parent(self, child):
+    if(child['parent'] != 0):
+      self.add_to_relationships(child['parent'], child['name'])
+
+  def add_to_relationships(self, parentName, childName):
+    self.relationships.append({'parent': parentName, 'child': childName})
+
+  def set_parents(self):
+    print('set_parents')
+    for relation in self.relationships:
+      child  = bpy.data.objects[relation['child']]
+      parent = bpy.data.objects[relation['parent']]
+      child.parent = parent
+      #print(relation)
 
 
 
@@ -60,9 +83,12 @@ class BaseObject(object):
   def __init__(self, compSettings, objData):
     self.compSettings = compSettings
     self.objData = objData
-    self.name = self.objData['name']
-    self.__add_to_scene()
-    self.__set_properties()
+    self.name    = self.objData['name']
+    self.parent  = self.objData['parent']
+    self.BO      = self.add_to_scene()
+    self.BO.name = self.name
+    self.BO.show_name = True
+    self.set_properties()
 
   def __set_property(self, propType, propList):
     numProperties = len(propList)
@@ -139,21 +165,46 @@ class BaseObject(object):
     if(frame != -1):
       self.BO.keyframe_insert(data_path="rotation_euler", frame=frame, index=index)
         
-  def __set_properties(self):
+  def set_properties(self):
     self.__set_property('location', self.__get_location_data())
     self.__set_property('xRotation', self.__get_rotation_data('xRotation'))
     self.__set_property('yRotation', self.__get_rotation_data('yRotation'))
     self.__set_property('zRotation', self.__get_rotation_data('zRotation'))
 
   # add the object type to the scene and create an instance variable reference for it.
-  def __add_to_scene(self):
+  def add_to_scene(self):
+    print("ObjectBase")
     bpy.ops.object.add(type='EMPTY')
-    self.BO = bpy.context.object
-    self.BO.name = self.name
+    return bpy.context.object
 
-class Null(BaseObject):
+
+
+
+class Empty(BaseObject):
   def __init__(self, compSettings, objData):
-    super(Null, self).__init__(compSettings, objData)
+    super(Empty, self).__init__(compSettings, objData)
 
+  def add_to_scene(self):
+    print("add Empty")
+    bpy.ops.object.add(type='EMPTY')
+    return bpy.context.object
+
+class Mesh(BaseObject):
+  def __init__(self, compSettings, objData):
+    super(Mesh, self).__init__(compSettings, objData)
+
+  def add_to_scene(self):
+    print("add Mesh")
+    bpy.ops.object.add(type='MESH')
+    return bpy.context.object
+
+class Camera(BaseObject):
+  def __init__(self, compSettings, objData):
+    super(Camera, self).__init__(compSettings, objData)
+
+  def add_to_scene(self):
+    print("add Camera")
+    bpy.ops.object.camera_add()
+    return bpy.context.object
 
 main = Main(json_data).run()
