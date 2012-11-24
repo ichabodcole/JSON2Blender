@@ -29,11 +29,11 @@ import bpy
 import os
 import json
 from math import radians
+#from math import invert
 
 directory = os.path.dirname(bpy.data.filepath)
 filename = "AE2JSON_Comp1.json"
-fullpath = directory + "/" +filename
-
+fullpath = directory + "/" +filename 
 json_str = open(fullpath).read()
 json_data = json.loads(json_str)
 
@@ -74,8 +74,16 @@ class Main():
     for relation in self.relationships:
       child  = bpy.data.objects[relation['child']]
       parent = bpy.data.objects[relation['parent']]
+
+      pMat = parent.matrix_world.inverted()
       child.parent = parent
-      #print(relation)
+      child.matrix_parent_inverse = pMat
+
+      # A second way to preform the above...
+      #bpy.ops.object.select_all(action='DESELECT')
+      #bpy.context.scene.objects.active = parent
+      #child.select = True
+      #bpy.ops.object.parent_set(type='OBJECT')
 
 
 
@@ -189,6 +197,7 @@ class Empty(BaseObject):
     bpy.ops.object.add(type='EMPTY')
     return bpy.context.object
 
+
 class Mesh(BaseObject):
   def __init__(self, compSettings, objData):
     super(Mesh, self).__init__(compSettings, objData)
@@ -198,6 +207,7 @@ class Mesh(BaseObject):
     bpy.ops.object.add(type='MESH')
     return bpy.context.object
 
+
 class Camera(BaseObject):
   def __init__(self, compSettings, objData):
     super(Camera, self).__init__(compSettings, objData)
@@ -206,5 +216,6 @@ class Camera(BaseObject):
     print("add Camera")
     bpy.ops.object.camera_add()
     return bpy.context.object
+
 
 main = Main(json_data).run()
