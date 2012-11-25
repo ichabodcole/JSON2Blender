@@ -29,7 +29,6 @@ import bpy
 import os
 import json
 from math import radians
-#from math import invert
 
 directory = os.path.dirname(bpy.data.filepath)
 filename = "AE2JSON_Comp1.json"
@@ -45,7 +44,6 @@ class Main():
     self.defaultComp = json_data['compositions'][0]
     self.compSettings = self.defaultComp['compSettings']
     self.relationships = []
-    #['ObjectName1':'ParentName1', 'ObjectName2:ParentName2']
 
   def run(self):
     layers = self.defaultComp['layers']
@@ -85,6 +83,52 @@ class Main():
       #child.select = True
       #bpy.ops.object.parent_set(type='OBJECT')
 
+class FrameCalculator(object):
+  def __init__(self, frameDuration):
+    self.frameDuration = frameDuration
+
+  def timeToFrame(self, time):
+    frame = round(time / self.frameDuration)
+    return frame
+
+
+class PropertySetter(object):
+  def __init__(self, frameCalculator):
+    self.frameCalc = frameCalculator
+
+  def set_property(self, blenderObj, propertyName, propValues):
+    self.blenderObj = blenderObj
+    self.propertyName = propertyName
+    self.propValues = propValues
+
+    if (self.__has_keyframes()):
+      self.__set_prop_keyframed()
+    else:
+      self.__set_prop_static()
+    pass
+
+  def __has_keyframes(self):
+    numProperties = len(self.propValues)
+    if(numProperties < 2 and numProperties != 0):
+      return False
+    #if there is more than 1 value the property has keyframes
+    return True
+
+  def __set_prop_static(self):
+    propVal = self.propValues[0][1]
+    #self.__handle_prop(propType, propVal)
+
+  def __set_prop_keyframed(self):
+    for propVal in self.propValues:
+      time = propVal[0]
+      propVal = propVal[1]
+      frame = self.frameCalc.timeToFrame(time)
+      #self.__handle_prop(propType, propVal, frame)
+
+#self.BO.location = location
+
+#if(frame != -1):
+#     self.BO.keyframe_insert(data_path="location", frame=frame)
 
 
 class BaseObject(object):
@@ -99,17 +143,38 @@ class BaseObject(object):
     self.set_properties()
 
   def __set_property(self, propType, propList):
-    numProperties = len(propList)
-    if (numProperties < 2 and numProperties != 0):
-      propVal = propList[0][1]
-      self.__handle_prop(propType, propVal)
+    if self.__is_keyframed(propList):
+      self.__set_prop_keyframed(propType, propList)
     else:
-      for prop in propList:
-        time = prop[0]
-        propVal = prop[1]
-        frameDuration = self.compSettings['frameDuration']
-        frame = round(time / frameDuration)
-        self.__handle_prop(propType, propVal, frame)
+      self.__set_prop_static(propType, propList)
+      
+  def __is_keyframed(self, propList):
+    numProperties = len(propList)
+    if(numProperties < 2 and numProperties != 0):
+      return False
+
+    return True
+
+  def __frame_duration(self):
+    return self.compSettings['frameDuration']
+
+  def __get_frame(self, time):
+    frameDuration = self.__frame_duration()
+    frame = round(time / frameDuration)
+    return frame
+
+  def __set_prop_static(self, propType, propList):
+    propVal = propList[0][1]
+    self.__handle_prop(propType, propVal)
+
+  def __set_prop_keyframed(self, propType, propList):
+    for prop in propList:
+      #time = prop.time
+      #value = prop.value
+      time = prop[0]
+      propVal = prop[1]
+      frame = self.__get_frame(time)
+      self.__handle_prop(propType, propVal, frame)
 
   def __handle_prop(self, propType, propVal, frame=-1):
     if(propType == 'location'):
@@ -217,5 +282,106 @@ class Camera(BaseObject):
     bpy.ops.object.camera_add()
     return bpy.context.object
 
+
+#
+# Data Parsers
+#
+class AbstractParser(object):
+  def __init__(self, objData):
+    self.objData = objData
+    self.newData = {}
+
+  def parse(self):
+    pass
+
+
+class NullParser(AbstractParser):
+  def __init__(self, objData):
+    super(DataParser, self).__init__(objData)
+
+  def parse(self):
+    pass
+    
+
+
+class CameraParser(AbstractParser):
+  def __init__(self, objData):
+    super(DataParser, self).__init__(objData)
+
+  def parse(self):
+    pass
+
+#
+# Converters
+#
+class AbstractConverter(object):
+  def __init__(self, arg):
+    pass
+
+  def convert(self):
+    pass
+
+class LocationConverter(AbstractConverter):
+  def __init__(self, arg):
+    super(Converter, self).__init__(arg)
+    self.scaleFactor = 0.01
+
+  def convert(self, locData):
+    pass
+
+  def __flip_zy():
+    #Flip the ZY coordinates
+    location[1], location[2] = location[2], -location[1]
+
+  def __scale_units():
+    #Scale down the dimensions to a resonable size
+    location = [x * self.scaleFactor for x in location]
+    pass
+
+  def __offset():
+    # Adjust the object position to compensate for After Effects Top Left corner coordinate  system
+    location[0], location[1] = (location[0]-(self.compSettings['width']/2)), (location[1]-(self.compSettings['height']/2))
+
+class RotationConverter(AbstractConverter):
+  def __init__(self, arg):
+    super(Converter, self).__init__(arg)
+
+  def convert(self, locData):
+    pass
+
+  def __toRadians():
+    #rotation = radians(rotation)
+    pass
+
+class xRotConverter(RotationConverter):
+  def __init__(self, arg):
+    super(Converter, self).__init__(arg)
+
+  def convert(self, locData):
+    pass
+
+  def __offset():
+    #rotation += 90
+    pass
+
+class yRotConverter(RotationConverter):
+  def __init__(self, arg):
+    super(Converter, self).__init__(arg)
+
+  def convert(self, locData):
+    pass
+
+  def __flip_zy():
+    pass
+
+class yRotConverter(RotationConverter):
+  def __init__(self, arg):
+    super(Converter, self).__init__(arg)
+
+  def convert(self, locData):
+    pass
+
+  def __flip_zy():
+    pass
 
 main = Main(json_data).run()
